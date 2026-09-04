@@ -1,0 +1,15 @@
+// Empty method
+class Student {
+  getGrade() {}
+}
+
+print Student().getGrade();
+
+// Equality between different types
+print "5" == 5;
+print nil == nil;
+
+// Variables changing types
+var value = 10;
+value = "ten";
+print value;
