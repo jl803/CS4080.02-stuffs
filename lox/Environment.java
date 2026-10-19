@@ -41,6 +41,15 @@ class Environment {
     throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
   }
 
+  Object getAt(int distance, Token name) {
+    Object value = ancestor(distance).values.get(name.lexeme);
+    if (value == UNINITIALIZED) {
+      throw new RuntimeError(
+          name, "Variable '" + name.lexeme + "' has not been initialized.");
+    }
+    return value;
+  }
+
   void assign(Token name, Object value) {
     if (values.containsKey(name.lexeme)) {
       values.put(name.lexeme, value);
@@ -53,5 +62,17 @@ class Environment {
     }
 
     throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
+  }
+
+  void assignAt(int distance, Token name, Object value) {
+    ancestor(distance).values.put(name.lexeme, value);
+  }
+
+  private Environment ancestor(int distance) {
+    Environment environment = this;
+    for (int i = 0; i < distance; i++) {
+      environment = environment.enclosing;
+    }
+    return environment;
   }
 }
