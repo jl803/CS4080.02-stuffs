@@ -1,12 +1,30 @@
-# CS 4080 - Crafting Interpreters HW
+# CS4080 - Homework 6
 
-My solutions to challenges from the Crafting Interpreters textbook.
+## Ch12Q1
 
-Files are repeated so every coding question runs on its own. Each question folder contains everything it needs so it doesn't depend on another folder. This also prevents later changes from affecting earlier answers.
+```text
+9
+```
 
-To run a question, open its folder in a terminal:
+## Ch12Q2
 
-```powershell
-javac *.java
-java Lox
+```text
+50.265482448
+```
+
+## Ch13Q2
+
+```text
+Fry until golden brown.
+Pipe full of custard and coat with chocolate.
+Place in a nice box.
+```
+
+## Ch13Q3
+
+```text
+[1, 2, 3]
+2
+[1, 9, 3]
+2
 ```
