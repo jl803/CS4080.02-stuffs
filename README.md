@@ -1,33 +1,5 @@
-# CS4080 - Homework 7
+# CS4080
 
-## Chapter 14 Question 1
+Latest version of my Crafting Interpreters Lox interpreter.
 
-```text
-== test chunk ==
-0000  123 OP_CONSTANT         0 '1.2'
-0002  124 OP_RETURN
-```
-
-## Chapter 14 Question 2
-
-```text
-== test chunk ==
-0000  123 OP_CONSTANT         0 '1.2'
-0002  124 OP_CONSTANT_LONG  256 '999'
-0006  125 OP_RETURN
-```
-
-## Chapter 15 Question 3
-
-```text
-Dynamic stack test: passed (1000 values)
-```
-
-## Chapter 15 Question 4
-
-```text
-50,000,000 OP_NEGATE instructions (-O2)
-Before: 0.122 seconds average
-After:  0.065 seconds average
-Result: about 47% faster
-```
+Each homework is stored in its own Git branch.
