@@ -62,6 +62,10 @@ class Environment {
     return value;
   }
 
+  Object getAt(int distance, int index) {
+    return ancestor(distance).localValues.get(index);
+  }
+
   void assign(Token name, Object value) {
     if (values.containsKey(name.lexeme)) {
       values.put(name.lexeme, value);

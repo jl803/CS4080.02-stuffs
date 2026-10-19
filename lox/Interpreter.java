@@ -96,6 +96,15 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitGetExpr(Expr.Get expr) {
+    Object object = evaluate(expr.object);
+    if (object instanceof LoxInstance) {
+      return ((LoxInstance) object).get(expr.name);
+    }
+    throw new RuntimeError(expr.name, "Only instances have properties.");
+  }
+
+  @Override
   public Object visitLiteralExpr(Expr.Literal expr) {
     return expr.value;
   }
@@ -123,6 +132,23 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     return evaluate(expr.right);
+  }
+
+  @Override
+  public Object visitSetExpr(Expr.Set expr) {
+    Object object = evaluate(expr.object);
+    if (!(object instanceof LoxInstance)) {
+      throw new RuntimeError(expr.name, "Only instances have fields.");
+    }
+
+    Object value = evaluate(expr.value);
+    ((LoxInstance) object).set(expr.name, value);
+    return value;
+  }
+
+  @Override
+  public Object visitThisExpr(Expr.This expr) {
+    return lookUpVariable(expr.keyword, expr);
   }
 
   @Override
@@ -209,6 +235,40 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitBreakStmt(Stmt.Break stmt) {
     throw new BreakException();
+  }
+
+  @Override
+  public Void visitClassStmt(Stmt.Class stmt) {
+    Integer index = declarationSlots.get(stmt.name);
+    if (index == null) {
+      globals.define(stmt.name.lexeme, null);
+    } else {
+      environment.defineAt(index, null);
+    }
+
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
+    }
+    LoxClass metaclass = new LoxClass(
+        null, stmt.name.lexeme + " metaclass", classMethods);
+
+    Map<String, LoxFunction> methods = new HashMap<>();
+    for (Stmt.Function method : stmt.methods) {
+      boolean isInitializer = method.name.lexeme.equals("init");
+      LoxFunction function = new LoxFunction(
+          method, environment, isInitializer);
+      methods.put(method.name.lexeme, function);
+    }
+
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
+    if (index == null) {
+      globals.assign(stmt.name, klass);
+    } else {
+      environment.defineAt(index, klass);
+    }
+    return null;
   }
 
   @Override
