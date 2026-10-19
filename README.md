@@ -1,12 +1,32 @@
-# CS 4080 - Crafting Interpreters HW
+# CS4080 - Homework 3
 
-My solutions to challenges from the Crafting Interpreters textbook.
+## Ch6Q1
 
-Files are repeated so every coding question runs on its own. Each question folder contains everything it needs so it doesn't depend on another folder. This also prevents later changes from affecting earlier answers.
+```text
+(, (+ 1.0 2.0) (* 3.0 4.0))
+```
 
-To run a question, open its folder in a terminal:
+## Ch6Q2
 
-```powershell
-javac *.java
-java Lox
+```text
+(?: true 1.0 (?: false 2.0 3.0))
+```
+
+## Ch6Q3
+
+```text
+[line 1] Error at '+': Missing left-hand operand.
+```
+
+## Ch7Q2
+
+```text
+scone4
+```
+
+## Ch7Q3
+
+```text
+Cannot divide by zero.
+[line 1]
 ```
