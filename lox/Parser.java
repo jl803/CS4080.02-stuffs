@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.List;
 
 class Parser {
@@ -12,12 +13,99 @@ class Parser {
     this.tokens = tokens;
   }
 
-  Expr parse() {
+  List<Stmt> parse() {
+    List<Stmt> statements = new ArrayList<>();
+    while (!isAtEnd()) {
+      statements.add(declaration());
+    }
+    return statements;
+  }
+
+  List<Stmt> parseRepl() {
+    if (check(TokenType.VAR)
+        || check(TokenType.PRINT)
+        || check(TokenType.LEFT_BRACE)) {
+      return parse();
+    }
+
+    List<Stmt> statements = new ArrayList<>();
     try {
-      return expression();
+      Expr expr = expression();
+
+      if (!match(TokenType.SEMICOLON)) {
+        if (!isAtEnd()) {
+          throw error(peek(), "Expect end of expression.");
+        }
+        statements.add(new Stmt.Print(expr));
+        return statements;
+      }
+
+      statements.add(new Stmt.Expression(expr));
+      while (!isAtEnd()) {
+        statements.add(declaration());
+      }
     } catch (ParseError error) {
+      return statements;
+    }
+
+    return statements;
+  }
+
+  private Stmt declaration() {
+    try {
+      if (match(TokenType.VAR)) {
+        return varDeclaration();
+      }
+      return statement();
+    } catch (ParseError error) {
+      synchronize();
       return null;
     }
+  }
+
+  private Stmt varDeclaration() {
+    Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
+
+    Expr initializer = null;
+    if (match(TokenType.EQUAL)) {
+      initializer = expression();
+    }
+
+    consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
+    return new Stmt.Var(name, initializer);
+  }
+
+  private Stmt statement() {
+    if (match(TokenType.PRINT)) {
+      return printStatement();
+    }
+    if (match(TokenType.LEFT_BRACE)) {
+      return new Stmt.Block(block());
+    }
+    return expressionStatement();
+  }
+
+  private Stmt printStatement() {
+    Expr value = expression();
+    consume(TokenType.SEMICOLON, "Expect ';' after value.");
+    return new Stmt.Print(value);
+  }
+
+  private Stmt expressionStatement() {
+    Expr expr = expression();
+    consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+    return new Stmt.Expression(expr);
+  }
+
+  private List<Stmt> block() {
+    List<Stmt> statements = new ArrayList<>();
+
+    while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+      statements.add(declaration());
+    }
+
+    consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
+    return statements;
   }
 
   private Expr expression() {
@@ -25,12 +113,30 @@ class Parser {
   }
 
   private Expr comma() {
-    Expr expr = conditional();
+    Expr expr = assignment();
 
     while (match(TokenType.COMMA)) {
       Token operator = previous();
-      Expr right = conditional();
+      Expr right = assignment();
       expr = new Expr.Binary(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr assignment() {
+    Expr expr = conditional();
+
+    if (match(TokenType.EQUAL)) {
+      Token equals = previous();
+      Expr value = assignment();
+
+      if (expr instanceof Expr.Variable) {
+        Token name = ((Expr.Variable) expr).name;
+        return new Expr.Assign(name, value);
+      }
+
+      error(equals, "Invalid assignment target.");
     }
 
     return expr;
@@ -41,7 +147,6 @@ class Parser {
 
     if (match(TokenType.QUESTION)) {
       Expr thenBranch = expression();
-
       consume(TokenType.COLON, "Expect ':' after then branch of conditional expression.");
       Expr elseBranch = conditional();
       expr = new Expr.Conditional(expr, thenBranch, elseBranch);
@@ -125,6 +230,10 @@ class Parser {
 
     if (match(TokenType.NUMBER, TokenType.STRING)) {
       return new Expr.Literal(previous().literal);
+    }
+
+    if (match(TokenType.IDENTIFIER)) {
+      return new Expr.Variable(previous());
     }
 
     if (match(TokenType.LEFT_PAREN)) {
@@ -215,5 +324,31 @@ class Parser {
   private ParseError error(Token token, String message) {
     Lox.error(token, message);
     return new ParseError();
+  }
+
+  private void synchronize() {
+    advance();
+
+    while (!isAtEnd()) {
+      if (previous().type == TokenType.SEMICOLON) {
+        return;
+      }
+
+      switch (peek().type) {
+        case CLASS:
+        case FUN:
+        case VAR:
+        case FOR:
+        case IF:
+        case WHILE:
+        case PRINT:
+        case RETURN:
+          return;
+        default:
+          // Keep looking for the beginning of the next statement.
+      }
+
+      advance();
+    }
   }
 }
