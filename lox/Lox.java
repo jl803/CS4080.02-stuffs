@@ -24,7 +24,7 @@ public class Lox {
 
   private static void runFile(String fileName) throws IOException {
     String source = Files.readString(Path.of(fileName), StandardCharsets.UTF_8);
-    run(source);
+    run(source, false);
 
     if (hadError) {
       System.exit(65);
@@ -46,23 +46,24 @@ public class Lox {
         break;
       }
 
-      run(line);
+      run(line, true);
       hadError = false;
+      hadRuntimeError = false;
     }
   }
 
-  private static void run(String source) {
+  private static void run(String source, boolean repl) {
     Scanner scanner = new Scanner(source);
     List<Token> tokens = scanner.scanTokens();
 
     Parser parser = new Parser(tokens);
-    Expr expression = parser.parse();
+    List<Stmt> statements = repl ? parser.parseRepl() : parser.parse();
 
     if (hadError) {
       return;
     }
 
-    interpreter.interpret(expression);
+    interpreter.interpret(statements);
   }
 
   static void error(int line, String message) {

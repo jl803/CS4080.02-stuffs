@@ -8,6 +8,7 @@ class Scanner {
 
   static {
     keywords.put("and", TokenType.AND);
+    keywords.put("break", TokenType.BREAK);
     keywords.put("class", TokenType.CLASS);
     keywords.put("else", TokenType.ELSE);
     keywords.put("false", TokenType.FALSE);
