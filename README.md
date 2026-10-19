@@ -16,3 +16,9 @@
 0002  124 OP_CONSTANT_LONG  256 '999'
 0006  125 OP_RETURN
 ```
+
+## Chapter 15 Question 3
+
+```text
+Dynamic stack test: passed (1000 values)
+```

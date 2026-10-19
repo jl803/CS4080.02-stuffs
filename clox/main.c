@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "common.h"
 #include "chunk.h"
 #include "debug.h"
@@ -5,6 +7,17 @@
 
 int main(int argc, const char* argv[]) {
   initVM();
+
+  for (int i = 0; i < 1000; i++) {
+    push(i);
+  }
+
+  bool stackWorks = true;
+  for (int i = 999; i >= 0; i--) {
+    if (pop() != i) stackWorks = false;
+  }
+  printf("Dynamic stack test: %s (1000 values)\n",
+         stackWorks ? "passed" : "failed");
 
   Chunk chunk;
   initChunk(&chunk);
