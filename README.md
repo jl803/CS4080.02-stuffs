@@ -22,3 +22,12 @@
 ```text
 Dynamic stack test: passed (1000 values)
 ```
+
+## Chapter 15 Question 4
+
+```text
+50,000,000 OP_NEGATE instructions (-O2)
+Before: 0.122 seconds average
+After:  0.065 seconds average
+Result: about 47% faster
+```
