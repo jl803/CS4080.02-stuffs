@@ -49,15 +49,24 @@ class LoxFunction implements LoxCallable {
 
   @Override
   public int arity() {
+    if (parameters == null) {
+      return 0;
+    }
     return parameters.size();
+  }
+
+  boolean isGetter() {
+    return parameters == null;
   }
 
   @Override
   public Object call(Interpreter interpreter, List<Object> arguments) {
     Environment environment = new Environment(closure);
-    for (int i = 0; i < parameters.size(); i++) {
-      int index = interpreter.getDeclarationIndex(parameters.get(i));
-      environment.defineAt(index, arguments.get(i));
+    if (parameters != null) {
+      for (int i = 0; i < parameters.size(); i++) {
+        int index = interpreter.getDeclarationIndex(parameters.get(i));
+        environment.defineAt(index, arguments.get(i));
+      }
     }
 
     try {
