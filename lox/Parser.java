@@ -329,6 +329,12 @@ class Parser {
         return new Expr.Set(get.object, get.name, value);
       }
 
+      if (expr instanceof Expr.Index) {
+        Expr.Index index = (Expr.Index) expr;
+        return new Expr.IndexSet(
+            index.object, index.index, value, index.bracket);
+      }
+
       error(equals, "Invalid assignment target.");
     }
 
@@ -440,6 +446,11 @@ class Parser {
     while (true) {
       if (match(TokenType.LEFT_PAREN)) {
         expr = finishCall(expr);
+      } else if (match(TokenType.LEFT_BRACKET)) {
+        Expr index = expression();
+        Token bracket = consume(
+            TokenType.RIGHT_BRACKET, "Expect ']' after array index.");
+        expr = new Expr.Index(expr, index, bracket);
       } else if (match(TokenType.DOT)) {
         Token name = consume(
             TokenType.IDENTIFIER, "Expect property name after '.'.");
@@ -480,6 +491,10 @@ class Parser {
     }
     if (match(TokenType.NIL)) {
       return new Expr.Literal(null);
+    }
+
+    if (match(TokenType.LEFT_BRACKET)) {
+      return arrayLiteral();
     }
 
     if (match(TokenType.THIS)) {
@@ -525,6 +540,18 @@ class Parser {
     }
 
     throw error(peek(), "Expect expression.");
+  }
+
+  private Expr arrayLiteral() {
+    List<Expr> elements = new ArrayList<>();
+    if (!check(TokenType.RIGHT_BRACKET)) {
+      do {
+        elements.add(assignment());
+      } while (match(TokenType.COMMA));
+    }
+
+    consume(TokenType.RIGHT_BRACKET, "Expect ']' after array elements.");
+    return new Expr.Array(elements);
   }
 
   private Expr anonymousFunction() {

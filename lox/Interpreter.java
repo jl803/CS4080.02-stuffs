@@ -55,6 +55,15 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitArrayExpr(Expr.Array expr) {
+    List<Object> elements = new java.util.ArrayList<>();
+    for (Expr element : expr.elements) {
+      elements.add(evaluate(element));
+    }
+    return elements;
+  }
+
+  @Override
   public Object visitAssignExpr(Expr.Assign expr) {
     Object value = evaluate(expr.value);
     LocalLocation location = locals.get(expr);
@@ -117,6 +126,22 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Object visitGroupingExpr(Expr.Grouping expr) {
     return evaluate(expr.expression);
+  }
+
+  @Override
+  public Object visitIndexExpr(Expr.Index expr) {
+    List<Object> array = requireArray(evaluate(expr.object), expr.bracket);
+    int index = requireIndex(evaluate(expr.index), array.size(), expr.bracket);
+    return array.get(index);
+  }
+
+  @Override
+  public Object visitIndexSetExpr(Expr.IndexSet expr) {
+    List<Object> array = requireArray(evaluate(expr.object), expr.bracket);
+    int index = requireIndex(evaluate(expr.index), array.size(), expr.bracket);
+    Object value = evaluate(expr.value);
+    array.set(index, value);
+    return value;
   }
 
   @Override
@@ -439,6 +464,27 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     throw new RuntimeError(operator, "Operands must be numbers.");
   }
 
+  @SuppressWarnings("unchecked")
+  private List<Object> requireArray(Object value, Token bracket) {
+    if (value instanceof List<?>) {
+      return (List<Object>) value;
+    }
+    throw new RuntimeError(bracket, "Only arrays can be indexed.");
+  }
+
+  private int requireIndex(Object value, int size, Token bracket) {
+    if (!(value instanceof Double)
+        || (double) value != Math.floor((double) value)) {
+      throw new RuntimeError(bracket, "Array index must be a whole number.");
+    }
+
+    int index = ((Double) value).intValue();
+    if (index < 0 || index >= size) {
+      throw new RuntimeError(bracket, "Array index is out of bounds.");
+    }
+    return index;
+  }
+
   private String stringify(Object object) {
     if (object == null) {
       return "nil";
@@ -450,6 +496,16 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         text = text.substring(0, text.length() - 2);
       }
       return text;
+    }
+
+    if (object instanceof List<?>) {
+      List<?> array = (List<?>) object;
+      StringBuilder result = new StringBuilder("[");
+      for (int i = 0; i < array.size(); i++) {
+        if (i > 0) result.append(", ");
+        result.append(stringify(array.get(i)));
+      }
+      return result.append("]").toString();
     }
 
     return object.toString();
