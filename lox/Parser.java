@@ -24,6 +24,7 @@ class Parser {
 
   List<Stmt> parseRepl() {
     if (check(TokenType.BREAK)
+        || check(TokenType.CLASS)
         || check(TokenType.FOR)
         || (check(TokenType.FUN) && checkNext(TokenType.IDENTIFIER))
         || check(TokenType.IF)
@@ -59,6 +60,9 @@ class Parser {
 
   private Stmt declaration() {
     try {
+      if (match(TokenType.CLASS)) {
+        return classDeclaration();
+      }
       if (check(TokenType.FUN) && checkNext(TokenType.IDENTIFIER)) {
         advance();
         return function("function");
@@ -73,21 +77,51 @@ class Parser {
     }
   }
 
+  private Stmt classDeclaration() {
+    Token name = consume(TokenType.IDENTIFIER, "Expect class name.");
+
+    Expr.Variable superclass = null;
+    if (match(TokenType.LESS)) {
+      consume(TokenType.IDENTIFIER, "Expect superclass name.");
+      superclass = new Expr.Variable(previous());
+    }
+
+    consume(TokenType.LEFT_BRACE, "Expect '{' before class body.");
+
+    List<Stmt.Function> methods = new ArrayList<>();
+    List<Stmt.Function> classMethods = new ArrayList<>();
+    while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+      boolean isClassMethod = match(TokenType.CLASS);
+      Stmt.Function method = function("method");
+      if (isClassMethod) {
+        classMethods.add(method);
+      } else {
+        methods.add(method);
+      }
+    }
+
+    consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.");
+    return new Stmt.Class(name, superclass, methods, classMethods);
+  }
+
   private Stmt.Function function(String kind) {
     Token name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
-    consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
+    List<Token> parameters = null;
 
-    List<Token> parameters = new ArrayList<>();
-    if (!check(TokenType.RIGHT_PAREN)) {
-      do {
-        if (parameters.size() >= 255) {
-          error(peek(), "Can't have more than 255 parameters.");
-        }
-        parameters.add(
-            consume(TokenType.IDENTIFIER, "Expect parameter name."));
-      } while (match(TokenType.COMMA));
+    if (!kind.equals("method") || check(TokenType.LEFT_PAREN)) {
+      consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
+      parameters = new ArrayList<>();
+      if (!check(TokenType.RIGHT_PAREN)) {
+        do {
+          if (parameters.size() >= 255) {
+            error(peek(), "Can't have more than 255 parameters.");
+          }
+          parameters.add(
+              consume(TokenType.IDENTIFIER, "Expect parameter name."));
+        } while (match(TokenType.COMMA));
+      }
+      consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
     }
-    consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
 
     List<Stmt> body;
     int enclosingLoopDepth = loopDepth;
@@ -290,6 +324,17 @@ class Parser {
         return new Expr.Assign(name, value);
       }
 
+      if (expr instanceof Expr.Get) {
+        Expr.Get get = (Expr.Get) expr;
+        return new Expr.Set(get.object, get.name, value);
+      }
+
+      if (expr instanceof Expr.Index) {
+        Expr.Index index = (Expr.Index) expr;
+        return new Expr.IndexSet(
+            index.object, index.index, value, index.bracket);
+      }
+
       error(equals, "Invalid assignment target.");
     }
 
@@ -401,6 +446,15 @@ class Parser {
     while (true) {
       if (match(TokenType.LEFT_PAREN)) {
         expr = finishCall(expr);
+      } else if (match(TokenType.LEFT_BRACKET)) {
+        Expr index = expression();
+        Token bracket = consume(
+            TokenType.RIGHT_BRACKET, "Expect ']' after array index.");
+        expr = new Expr.Index(expr, index, bracket);
+      } else if (match(TokenType.DOT)) {
+        Token name = consume(
+            TokenType.IDENTIFIER, "Expect property name after '.'.");
+        expr = new Expr.Get(expr, name);
       } else {
         break;
       }
@@ -437,6 +491,14 @@ class Parser {
     }
     if (match(TokenType.NIL)) {
       return new Expr.Literal(null);
+    }
+
+    if (match(TokenType.LEFT_BRACKET)) {
+      return arrayLiteral();
+    }
+
+    if (match(TokenType.THIS)) {
+      return new Expr.This(previous());
     }
 
     if (match(TokenType.NUMBER, TokenType.STRING)) {
@@ -478,6 +540,18 @@ class Parser {
     }
 
     throw error(peek(), "Expect expression.");
+  }
+
+  private Expr arrayLiteral() {
+    List<Expr> elements = new ArrayList<>();
+    if (!check(TokenType.RIGHT_BRACKET)) {
+      do {
+        elements.add(assignment());
+      } while (match(TokenType.COMMA));
+    }
+
+    consume(TokenType.RIGHT_BRACKET, "Expect ']' after array elements.");
+    return new Expr.Array(elements);
   }
 
   private Expr anonymousFunction() {

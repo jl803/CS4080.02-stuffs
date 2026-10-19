@@ -55,6 +55,15 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitArrayExpr(Expr.Array expr) {
+    List<Object> elements = new java.util.ArrayList<>();
+    for (Expr element : expr.elements) {
+      elements.add(evaluate(element));
+    }
+    return elements;
+  }
+
+  @Override
   public Object visitAssignExpr(Expr.Assign expr) {
     Object value = evaluate(expr.value);
     LocalLocation location = locals.get(expr);
@@ -96,6 +105,20 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitGetExpr(Expr.Get expr) {
+    Object object = evaluate(expr.object);
+    if (object instanceof LoxInstance) {
+      Object result = ((LoxInstance) object).get(expr.name);
+      if (result instanceof LoxFunction
+          && ((LoxFunction) result).isGetter()) {
+        return ((LoxFunction) result).call(this, List.of());
+      }
+      return result;
+    }
+    throw new RuntimeError(expr.name, "Only instances have properties.");
+  }
+
+  @Override
   public Object visitLiteralExpr(Expr.Literal expr) {
     return expr.value;
   }
@@ -103,6 +126,22 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Object visitGroupingExpr(Expr.Grouping expr) {
     return evaluate(expr.expression);
+  }
+
+  @Override
+  public Object visitIndexExpr(Expr.Index expr) {
+    List<Object> array = requireArray(evaluate(expr.object), expr.bracket);
+    int index = requireIndex(evaluate(expr.index), array.size(), expr.bracket);
+    return array.get(index);
+  }
+
+  @Override
+  public Object visitIndexSetExpr(Expr.IndexSet expr) {
+    List<Object> array = requireArray(evaluate(expr.object), expr.bracket);
+    int index = requireIndex(evaluate(expr.index), array.size(), expr.bracket);
+    Object value = evaluate(expr.value);
+    array.set(index, value);
+    return value;
   }
 
   @Override
@@ -123,6 +162,23 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     return evaluate(expr.right);
+  }
+
+  @Override
+  public Object visitSetExpr(Expr.Set expr) {
+    Object object = evaluate(expr.object);
+    if (!(object instanceof LoxInstance)) {
+      throw new RuntimeError(expr.name, "Only instances have fields.");
+    }
+
+    Object value = evaluate(expr.value);
+    ((LoxInstance) object).set(expr.name, value);
+    return value;
+  }
+
+  @Override
+  public Object visitThisExpr(Expr.This expr) {
+    return lookUpVariable(expr.keyword, expr);
   }
 
   @Override
@@ -209,6 +265,51 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitBreakStmt(Stmt.Break stmt) {
     throw new BreakException();
+  }
+
+  @Override
+  public Void visitClassStmt(Stmt.Class stmt) {
+    Integer index = declarationSlots.get(stmt.name);
+    if (index == null) {
+      globals.define(stmt.name.lexeme, null);
+    } else {
+      environment.defineAt(index, null);
+    }
+
+    LoxClass superclass = null;
+    if (stmt.superclass != null) {
+      Object value = evaluate(stmt.superclass);
+      if (!(value instanceof LoxClass)) {
+        throw new RuntimeError(
+            stmt.superclass.name, "Superclass must be a class.");
+      }
+      superclass = (LoxClass) value;
+    }
+
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
+    }
+    LoxClass metaclass = new LoxClass(
+        null, stmt.name.lexeme + " metaclass", null, classMethods);
+
+    Map<String, LoxFunction> methods = new HashMap<>();
+    for (Stmt.Function method : stmt.methods) {
+      boolean isInitializer = method.name.lexeme.equals("init");
+      LoxFunction function = new LoxFunction(
+          method, environment, isInitializer);
+      methods.put(method.name.lexeme, function);
+    }
+
+    LoxClass klass = new LoxClass(
+        metaclass, stmt.name.lexeme, superclass, methods);
+    if (index == null) {
+      globals.assign(stmt.name, klass);
+    } else {
+      environment.defineAt(index, klass);
+    }
+    return null;
   }
 
   @Override
@@ -363,6 +464,27 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     throw new RuntimeError(operator, "Operands must be numbers.");
   }
 
+  @SuppressWarnings("unchecked")
+  private List<Object> requireArray(Object value, Token bracket) {
+    if (value instanceof List<?>) {
+      return (List<Object>) value;
+    }
+    throw new RuntimeError(bracket, "Only arrays can be indexed.");
+  }
+
+  private int requireIndex(Object value, int size, Token bracket) {
+    if (!(value instanceof Double)
+        || (double) value != Math.floor((double) value)) {
+      throw new RuntimeError(bracket, "Array index must be a whole number.");
+    }
+
+    int index = ((Double) value).intValue();
+    if (index < 0 || index >= size) {
+      throw new RuntimeError(bracket, "Array index is out of bounds.");
+    }
+    return index;
+  }
+
   private String stringify(Object object) {
     if (object == null) {
       return "nil";
@@ -374,6 +496,16 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         text = text.substring(0, text.length() - 2);
       }
       return text;
+    }
+
+    if (object instanceof List<?>) {
+      List<?> array = (List<?>) object;
+      StringBuilder result = new StringBuilder("[");
+      for (int i = 0; i < array.size(); i++) {
+        if (i > 0) result.append(", ");
+        result.append(stringify(array.get(i)));
+      }
+      return result.append("]").toString();
     }
 
     return object.toString();
