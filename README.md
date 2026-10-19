@@ -1,3 +1,9 @@
-# CS4080
+# CS4080 - Homework 7
 
-Latest version of my Crafting Interpreters Lox interpreter.
+## Chapter 14 Question 1
+
+```text
+== test chunk ==
+0000  123 OP_CONSTANT         0 '1.2'
+0002  124 OP_RETURN
+```
