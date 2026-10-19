@@ -133,7 +133,38 @@ class Parser {
       return new Expr.Grouping(expr);
     }
 
+    if (match(TokenType.COMMA)) {
+      return discardMissingLeftOperand(previous(), this::comma);
+    }
+
+    if (match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL)) {
+      return discardMissingLeftOperand(previous(), this::equality);
+    }
+
+    if (match(
+        TokenType.GREATER,
+        TokenType.GREATER_EQUAL,
+        TokenType.LESS,
+        TokenType.LESS_EQUAL)) {
+      return discardMissingLeftOperand(previous(), this::comparison);
+    }
+
+    if (match(TokenType.PLUS)) {
+      return discardMissingLeftOperand(previous(), this::term);
+    }
+
+    if (match(TokenType.SLASH, TokenType.STAR)) {
+      return discardMissingLeftOperand(previous(), this::factor);
+    }
+
     throw error(peek(), "Expect expression.");
+  }
+
+  private Expr discardMissingLeftOperand(
+      Token operator, Runnable parseRightOperand) {
+    error(operator, "Missing left-hand operand.");
+    parseRightOperand.run();
+    return null;
   }
 
   private boolean match(TokenType... types) {
