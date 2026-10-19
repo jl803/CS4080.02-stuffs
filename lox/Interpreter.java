@@ -251,13 +251,23 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       environment.defineAt(index, null);
     }
 
+    LoxClass superclass = null;
+    if (stmt.superclass != null) {
+      Object value = evaluate(stmt.superclass);
+      if (!(value instanceof LoxClass)) {
+        throw new RuntimeError(
+            stmt.superclass.name, "Superclass must be a class.");
+      }
+      superclass = (LoxClass) value;
+    }
+
     Map<String, LoxFunction> classMethods = new HashMap<>();
     for (Stmt.Function method : stmt.classMethods) {
       LoxFunction function = new LoxFunction(method, environment, false);
       classMethods.put(method.name.lexeme, function);
     }
     LoxClass metaclass = new LoxClass(
-        null, stmt.name.lexeme + " metaclass", classMethods);
+        null, stmt.name.lexeme + " metaclass", null, classMethods);
 
     Map<String, LoxFunction> methods = new HashMap<>();
     for (Stmt.Function method : stmt.methods) {
@@ -267,7 +277,8 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
       methods.put(method.name.lexeme, function);
     }
 
-    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
+    LoxClass klass = new LoxClass(
+        metaclass, stmt.name.lexeme, superclass, methods);
     if (index == null) {
       globals.assign(stmt.name, klass);
     } else {

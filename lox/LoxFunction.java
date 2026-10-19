@@ -1,6 +1,23 @@
 import java.util.List;
 
 class LoxFunction implements LoxCallable {
+  private static final LoxCallable NO_INNER = new LoxCallable() {
+    @Override
+    public int arity() {
+      return 0;
+    }
+
+    @Override
+    public Object call(Interpreter interpreter, List<Object> arguments) {
+      return null;
+    }
+
+    @Override
+    public String toString() {
+      return "<no inner method>";
+    }
+  };
+
   private final String name;
   private final List<Token> parameters;
   private final List<Stmt> body;
@@ -29,8 +46,13 @@ class LoxFunction implements LoxCallable {
   }
 
   LoxFunction bind(LoxInstance instance) {
+    return bind(instance, null);
+  }
+
+  LoxFunction bind(LoxInstance instance, LoxFunction inner) {
     Environment environment = new Environment(closure);
     environment.defineAt(0, instance);
+    environment.defineAt(1, inner == null ? NO_INNER : inner);
     return new LoxFunction(name, parameters, body, environment, isInitializer);
   }
 
