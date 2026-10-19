@@ -9,6 +9,16 @@ class AstPrinter implements Expr.Visitor<String> {
   }
 
   @Override
+  public String visitCallExpr(Expr.Call expr) {
+    Expr[] parts = new Expr[expr.arguments.size() + 1];
+    parts[0] = expr.callee;
+    for (int i = 0; i < expr.arguments.size(); i++) {
+      parts[i + 1] = expr.arguments.get(i);
+    }
+    return parenthesize("call", parts);
+  }
+
+  @Override
   public String visitBinaryExpr(Expr.Binary expr) {
     return parenthesize(expr.operator.lexeme, expr.left, expr.right);
   }
@@ -16,6 +26,11 @@ class AstPrinter implements Expr.Visitor<String> {
   @Override
   public String visitConditionalExpr(Expr.Conditional expr) {
     return parenthesize("?:", expr.condition, expr.thenBranch, expr.elseBranch);
+  }
+
+  @Override
+  public String visitFunctionExpr(Expr.Function expr) {
+    return "<fn>";
   }
 
   @Override

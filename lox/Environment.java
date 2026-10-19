@@ -1,9 +1,12 @@
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class Environment {
   final Environment enclosing;
   private final Map<String, Object> values = new HashMap<>();
+  private final List<Object> localValues = new ArrayList<>();
   private static final Object UNINITIALIZED = new Object();
 
   Environment() {
@@ -41,6 +44,24 @@ class Environment {
     throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
   }
 
+  void defineAt(int index, Object value) {
+    ensureLocalCapacity(index);
+    localValues.set(index, value);
+  }
+
+  void defineAt(int index) {
+    defineAt(index, UNINITIALIZED);
+  }
+
+  Object getAt(int distance, int index, Token name) {
+    Object value = ancestor(distance).localValues.get(index);
+    if (value == UNINITIALIZED) {
+      throw new RuntimeError(
+          name, "Variable '" + name.lexeme + "' has not been initialized.");
+    }
+    return value;
+  }
+
   void assign(Token name, Object value) {
     if (values.containsKey(name.lexeme)) {
       values.put(name.lexeme, value);
@@ -53,5 +74,23 @@ class Environment {
     }
 
     throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
+  }
+
+  void assignAt(int distance, int index, Object value) {
+    ancestor(distance).localValues.set(index, value);
+  }
+
+  private Environment ancestor(int distance) {
+    Environment environment = this;
+    for (int i = 0; i < distance; i++) {
+      environment = environment.enclosing;
+    }
+    return environment;
+  }
+
+  private void ensureLocalCapacity(int index) {
+    while (localValues.size() <= index) {
+      localValues.add(null);
+    }
   }
 }
