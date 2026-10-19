@@ -1,12 +1,34 @@
-# CS 4080 - Crafting Interpreters HW
+# CS4080 - Homework 4
 
-My solutions to challenges from the Crafting Interpreters textbook.
+## Ch8Q1
 
-Files are repeated so every coding question runs on its own. Each question folder contains everything it needs so it doesn't depend on another folder. This also prevents later changes from affecting earlier answers.
+The REPL accepted both an expression and a statement:
 
-To run a question, open its folder in a terminal:
+```text
+> 3
+> 4
+```
 
-```powershell
-javac *.java
-java Lox
+## Ch8Q2
+
+```text
+assigned
+Variable 'b' has not been initialized.
+[line 5]
+```
+
+## Ch9Q3
+
+The loop stopped at `break`:
+
+```text
+0
+1
+done
+```
+
+Using `break` outside a loop produced:
+
+```text
+[line 1] Error at 'break': Can't use 'break' outside of a loop.
 ```
