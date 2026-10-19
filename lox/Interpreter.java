@@ -3,6 +3,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+  private static class LocalLocation {
+    final int depth;
+    final int index;
+
+    LocalLocation(int depth, int index) {
+      this.depth = depth;
+      this.index = index;
+    }
+  }
+
   @SuppressWarnings("serial")
   private static class BreakException extends RuntimeException {
     BreakException() {
@@ -12,7 +22,8 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   final Environment globals = new Environment();
   private Environment environment = globals;
-  private final Map<Expr, Integer> locals = new HashMap<>();
+  private final Map<Expr, LocalLocation> locals = new HashMap<>();
+  private final Map<Token, Integer> declarationSlots = new HashMap<>();
 
   Interpreter() {
     globals.define("clock", new LoxCallable() {
@@ -46,9 +57,9 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Object visitAssignExpr(Expr.Assign expr) {
     Object value = evaluate(expr.value);
-    Integer distance = locals.get(expr);
-    if (distance != null) {
-      environment.assignAt(distance, expr.name, value);
+    LocalLocation location = locals.get(expr);
+    if (location != null) {
+      environment.assignAt(location.depth, location.index, value);
     } else {
       globals.assign(expr.name, value);
     }
@@ -209,7 +220,12 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitFunctionStmt(Stmt.Function stmt) {
     LoxFunction function = new LoxFunction(stmt, environment);
-    environment.define(stmt.name.lexeme, function);
+    Integer index = declarationSlots.get(stmt.name);
+    if (index == null) {
+      globals.define(stmt.name.lexeme, function);
+    } else {
+      environment.defineAt(index, function);
+    }
     return null;
   }
 
@@ -241,11 +257,21 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
-    if (stmt.initializer == null) {
-      environment.define(stmt.name.lexeme);
+    Integer index = declarationSlots.get(stmt.name);
+    if (index == null) {
+      if (stmt.initializer == null) {
+        globals.define(stmt.name.lexeme);
+      } else {
+        Object value = evaluate(stmt.initializer);
+        globals.define(stmt.name.lexeme, value);
+      }
     } else {
-      Object value = evaluate(stmt.initializer);
-      environment.define(stmt.name.lexeme, value);
+      if (stmt.initializer == null) {
+        environment.defineAt(index);
+      } else {
+        Object value = evaluate(stmt.initializer);
+        environment.defineAt(index, value);
+      }
     }
 
     return null;
@@ -275,14 +301,22 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
   }
 
-  void resolve(Expr expression, int depth) {
-    locals.put(expression, depth);
+  void resolve(Expr expression, int depth, int index) {
+    locals.put(expression, new LocalLocation(depth, index));
+  }
+
+  void resolveDeclaration(Token name, int index) {
+    declarationSlots.put(name, index);
+  }
+
+  int getDeclarationIndex(Token name) {
+    return declarationSlots.get(name);
   }
 
   private Object lookUpVariable(Token name, Expr expression) {
-    Integer distance = locals.get(expression);
-    if (distance != null) {
-      return environment.getAt(distance, name);
+    LocalLocation location = locals.get(expression);
+    if (location != null) {
+      return environment.getAt(location.depth, location.index, name);
     }
     return globals.get(name);
   }
