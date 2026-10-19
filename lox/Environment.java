@@ -4,6 +4,7 @@ import java.util.Map;
 class Environment {
   final Environment enclosing;
   private final Map<String, Object> values = new HashMap<>();
+  private static final Object UNINITIALIZED = new Object();
 
   Environment() {
     enclosing = null;
@@ -17,9 +18,20 @@ class Environment {
     values.put(name, value);
   }
 
+  void define(String name) {
+    values.put(name, UNINITIALIZED);
+  }
+
   Object get(Token name) {
     if (values.containsKey(name.lexeme)) {
-      return values.get(name.lexeme);
+      Object value = values.get(name.lexeme);
+
+      if (value == UNINITIALIZED) {
+        throw new RuntimeError(
+          name, "Variable '" + name.lexeme + "' has not been initialized.");
+      }
+
+      return value;
     }
 
     if (enclosing != null) {
