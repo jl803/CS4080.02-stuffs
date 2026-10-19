@@ -1,12 +1,21 @@
-# CS 4080 - Crafting Interpreters HW
+# CS4080 - Homework 2
 
-My solutions to challenges from the Crafting Interpreters textbook.
+## Ch4Q4
 
-Files are repeated so every coding question runs on its own. Each question folder contains everything it needs so it doesn't depend on another folder. This also prevents later changes from affecting earlier answers.
+The scanner skipped the nested block comment and continued with the code after it:
 
-To run a question, open its folder in a terminal:
+```text
+PRINT print null
+STRING "before" before
+SEMICOLON ; null
+PRINT print null
+STRING "after" after
+SEMICOLON ; null
+EOF  null
+```
 
-```powershell
-javac *.java
-java Lox
+## Ch5Q3
+
+```text
+1 2 + 4 3 - *
 ```
