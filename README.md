@@ -1,12 +1,22 @@
-# CS 4080 - Crafting Interpreters HW
+# CS4080 - Homework 5
 
-My solutions to challenges from the Crafting Interpreters textbook.
+## Ch10Q2
 
-Files are repeated so every coding question runs on its own. Each question folder contains everything it needs so it doesn't depend on another folder. This also prevents later changes from affecting earlier answers.
+```text
+1
+2
+3
+```
 
-To run a question, open its folder in a terminal:
+## Ch11Q3
 
-```powershell
-javac *.java
-java Lox
+```text
+[line 4] Error at 'unused': Local variable is never used.
+```
+
+## Ch11Q4
+
+```text
+outer
+inner
 ```
