@@ -1,5 +1,3 @@
-# CS4080
+# CS4080 - Homework 8
 
-Latest version of my Crafting Interpreters Lox interpreter.
-
-Each homework is stored in its own Git branch.
+Chapter 16–18 challenge solutions.

@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "compiler.h"
 #include "debug.h"
 #include "memory.h"
 #include "vm.h"
@@ -93,8 +94,12 @@ static InterpretResult run() {
 #undef READ_CONSTANT
 #undef BINARY_OP
 }
-InterpretResult interpret(Chunk* chunk) {
-  vm.chunk = chunk;
-  vm.ip = vm.chunk->code;
-  return run();
+void hack(bool b) {
+  // Keep run() reachable while Chapter 16 only prints scanned tokens.
+  run();
+  if (b) hack(false);
+}
+InterpretResult interpret(const char* source) {
+  compile(source);
+  return INTERPRET_OK;
 }
