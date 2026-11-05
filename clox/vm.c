@@ -31,6 +31,7 @@ void initVM() {
   vm.stack = GROW_ARRAY(Value, NULL, 0, vm.stackCapacity);
   resetStack();
   vm.objects = NULL;
+  initTable(&vm.strings);
 }
 
 void freeVM() {
@@ -38,6 +39,7 @@ void freeVM() {
   vm.stack = NULL;
   vm.stackTop = NULL;
   vm.stackCapacity = 0;
+  freeTable(&vm.strings);
   freeObjects();
 }
 void push(Value value) {
@@ -73,7 +75,7 @@ static void concatenate() {
   memcpy(chars + a->length, b->chars, b->length);
   chars[length] = '\0';
 
-  ObjString* result = createString(true, chars, length);
+  ObjString* result = takeString(chars, length);
   push(OBJ_VAL(result));
 }
 static InterpretResult run() {
