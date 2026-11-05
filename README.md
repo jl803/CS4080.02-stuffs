@@ -12,3 +12,13 @@ flexible array
 constant string
 combined string
 ```
+
+## Chapter 20 Question 1
+
+```text
+Boolean keys: passed
+nil key: passed
+Number keys: passed
+String key: passed
+Growth and deletion: passed
+```
