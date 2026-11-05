@@ -22,3 +22,12 @@ Number keys: passed
 String key: passed
 Growth and deletion: passed
 ```
+
+## Chapter 20 Question 3
+
+```text
+Number insert and lookup  0.0330 seconds (12.1 million operations/second)
+Repeated updates          0.0350 seconds (57.2 million operations/second)
+Delete and reinsert       0.0290 seconds (13.8 million operations/second)
+String insert and lookup  0.0170 seconds ( 5.9 million operations/second)
+```
