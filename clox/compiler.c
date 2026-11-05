@@ -4,6 +4,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "scanner.h"
+#include "table.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -41,6 +42,7 @@ typedef struct {
 
 Parser parser;
 Chunk* compilingChunk;
+Table identifierConstants;
 
 static Chunk* currentChunk() {
   return compilingChunk;
@@ -133,8 +135,17 @@ static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(copyString(name->start,
-                                         name->length)));
+  ObjString* string = copyString(name->start, name->length);
+  Value key = OBJ_VAL(string);
+  Value indexValue;
+
+  if (tableGet(&identifierConstants, key, &indexValue)) {
+    return (uint8_t)AS_NUMBER(indexValue);
+  }
+
+  uint8_t index = makeConstant(key);
+  tableSet(&identifierConstants, key, NUMBER_VAL(index));
+  return index;
 }
 static uint8_t parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
@@ -354,6 +365,7 @@ bool compile(const char* source, Chunk* chunk) {
 
   parser.hadError = false;
   parser.panicMode = false;
+  initTable(&identifierConstants);
 
   advance();
 
@@ -362,5 +374,6 @@ bool compile(const char* source, Chunk* chunk) {
   }
 
   endCompiler();
+  freeTable(&identifierConstants);
   return !parser.hadError;
 }
