@@ -5,3 +5,10 @@
 ```text
 flexible array
 ```
+
+## Chapter 19 Question 2
+
+```text
+constant string
+combined string
+```

@@ -22,12 +22,12 @@ struct Obj {
 
 struct ObjString {
   Obj obj;
+  bool ownsChars;
   int length;
-  char chars[];
+  const char* chars;
 };
 
-ObjString* createString(int length);
-ObjString* copyString(const char* chars, int length);
+ObjString* createString(bool ownsChars, const char* chars, int length);
 void printObject(Value value);
 
 static inline bool isObjType(Value value, ObjType type) {
@@ -35,4 +35,3 @@ static inline bool isObjType(Value value, ObjType type) {
 }
 
 #endif
-

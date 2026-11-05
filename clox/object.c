@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <string.h>
 
 #include "memory.h"
 #include "object.h"
@@ -15,23 +14,18 @@ static Obj* allocateObject(size_t size, ObjType type) {
   return object;
 }
 
-ObjString* createString(int length) {
+ObjString* createString(bool ownsChars, const char* chars, int length) {
   ObjString* string = (ObjString*)allocateObject(
-      sizeof(ObjString) + length + 1, OBJ_STRING);
+      sizeof(ObjString), OBJ_STRING);
+  string->ownsChars = ownsChars;
   string->length = length;
-  return string;
-}
-ObjString* copyString(const char* chars, int length) {
-  ObjString* string = createString(length);
-  memcpy(string->chars, chars, length);
-  string->chars[length] = '\0';
+  string->chars = chars;
   return string;
 }
 void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
     case OBJ_STRING:
-      printf("%s", AS_CSTRING(value));
+      printf("%.*s", AS_STRING(value)->length, AS_CSTRING(value));
       break;
   }
 }
-
