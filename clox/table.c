@@ -19,6 +19,9 @@ void freeTable(Table* table) {
   initTable(table);
 }
 
+// NOTE: The "Optimization" chapter has a manual copy of this function.
+// If you change it here, make sure to update that copy.
+
 static uint32_t hashNumber(double number) {
   // Lox considers -0 and 0 equal, so they need the same hash.
   if (number == 0) number = 0;
