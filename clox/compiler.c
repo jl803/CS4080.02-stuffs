@@ -42,7 +42,6 @@ typedef struct {
 
 Parser parser;
 Chunk* compilingChunk;
-Table identifierConstants;
 
 static Chunk* currentChunk() {
   return compilingChunk;
@@ -107,15 +106,6 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
 static void emitReturn() {
   emitByte(OP_RETURN);
 }
-static uint8_t makeConstant(Value value) {
-  int constant = addConstant(currentChunk(), value);
-  if (constant > UINT8_MAX) {
-    error("Too many constants in one chunk.");
-    return 0;
-  }
-
-  return (uint8_t)constant;
-}
 static void emitConstant(Value value) {
   writeConstant(currentChunk(), value, parser.previous.line);
 }
@@ -139,12 +129,18 @@ static uint8_t identifierConstant(Token* name) {
   Value key = OBJ_VAL(string);
   Value indexValue;
 
-  if (tableGet(&identifierConstants, key, &indexValue)) {
+  if (tableGet(&vm.globalNames, key, &indexValue)) {
     return (uint8_t)AS_NUMBER(indexValue);
   }
 
-  uint8_t index = makeConstant(key);
-  tableSet(&identifierConstants, key, NUMBER_VAL(index));
+  if (vm.globalValues.count > UINT8_MAX) {
+    error("Too many global variables.");
+    return 0;
+  }
+
+  uint8_t index = (uint8_t)vm.globalValues.count;
+  writeValueArray(&vm.globalValues, UNDEFINED_VAL);
+  tableSet(&vm.globalNames, key, NUMBER_VAL(index));
   return index;
 }
 static uint8_t parseVariable(const char* errorMessage) {
@@ -365,7 +361,6 @@ bool compile(const char* source, Chunk* chunk) {
 
   parser.hadError = false;
   parser.panicMode = false;
-  initTable(&identifierConstants);
 
   advance();
 
@@ -374,6 +369,5 @@ bool compile(const char* source, Chunk* chunk) {
   }
 
   endCompiler();
-  freeTable(&identifierConstants);
   return !parser.hadError;
 }

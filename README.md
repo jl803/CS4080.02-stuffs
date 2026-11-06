@@ -38,3 +38,12 @@ String insert and lookup  0.0170 seconds ( 5.9 million operations/second)
 Repeated references: passed
 Constants used: 2
 ```
+
+## Chapter 21 Question 2
+
+```text
+10
+20
+Undefined variable.
+REPL persistence: 42
+```
