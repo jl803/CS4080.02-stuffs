@@ -44,6 +44,7 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  bool isMutable;
 } Local;
 
 typedef struct {
@@ -191,7 +192,21 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 
   return -1;
 }
-static void addLocal(Token name) {
+static bool isGlobalMutable(Token* name) {
+  ObjString* string = copyString(name->start, name->length);
+  Value ignored;
+  return !tableGet(&vm.immutableGlobals, OBJ_VAL(string), &ignored);
+}
+static void setGlobalMutability(Token* name, bool isMutable) {
+  ObjString* string = copyString(name->start, name->length);
+  Value key = OBJ_VAL(string);
+  if (isMutable) {
+    tableDelete(&vm.immutableGlobals, key);
+  } else {
+    tableSet(&vm.immutableGlobals, key, NIL_VAL);
+  }
+}
+static void addLocal(Token name, bool isMutable) {
   if (current->localCount == UINT8_COUNT) {
     error("Too many local variables in function.");
     return;
@@ -200,8 +215,9 @@ static void addLocal(Token name) {
   Local* local = &current->locals[current->localCount++];
   local->name = name;
   local->depth = -1;
+  local->isMutable = isMutable;
 }
-static void declareVariable() {
+static void declareVariable(bool isMutable) {
   if (current->scopeDepth == 0) return;
 
   Token* name = &parser.previous;
@@ -216,14 +232,16 @@ static void declareVariable() {
     }
   }
 
-  addLocal(*name);
+  addLocal(*name, isMutable);
 }
-static uint8_t parseVariable(const char* errorMessage) {
+static uint8_t parseVariable(const char* errorMessage,
+                             bool isMutable) {
   consume(TOKEN_IDENTIFIER, errorMessage);
 
-  declareVariable();
+  declareVariable(isMutable);
   if (current->scopeDepth > 0) return 0;
 
+  setGlobalMutability(&parser.previous, isMutable);
   return identifierConstant(&parser.previous);
 }
 static void markInitialized() {
@@ -285,18 +303,24 @@ static void string(bool canAssign) {
 }
 static void namedVariable(Token name, bool canAssign) {
   uint8_t getOp, setOp;
+  bool isMutable;
   int arg = resolveLocal(current, &name);
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
+    isMutable = current->locals[arg].isMutable;
   } else {
     arg = identifierConstant(&name);
     getOp = OP_GET_GLOBAL;
     setOp = OP_SET_GLOBAL;
+    isMutable = isGlobalMutable(&name);
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
+    if (!isMutable) {
+      errorAt(&name, "Can't assign to a 'let' variable.");
+    }
     emitBytes(setOp, (uint8_t)arg);
   } else {
     emitBytes(getOp, (uint8_t)arg);
@@ -350,6 +374,7 @@ ParseRule rules[] = {
   [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FUN]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_LET]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_NIL]           = {literal,  NULL,   PREC_NONE},
   [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
@@ -396,8 +421,9 @@ static void block() {
 
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
-static void varDeclaration() {
-  uint8_t global = parseVariable("Expect variable name.");
+static void varDeclaration(bool isMutable) {
+  uint8_t global = parseVariable("Expect variable name.",
+                                 isMutable);
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -427,6 +453,7 @@ static void synchronize() {
     switch (parser.current.type) {
       case TOKEN_CLASS:
       case TOKEN_FUN:
+      case TOKEN_LET:
       case TOKEN_VAR:
       case TOKEN_FOR:
       case TOKEN_IF:
@@ -443,8 +470,10 @@ static void synchronize() {
   }
 }
 static void declaration() {
-  if (match(TOKEN_VAR)) {
-    varDeclaration();
+  if (match(TOKEN_LET)) {
+    varDeclaration(false);
+  } else if (match(TOKEN_VAR)) {
+    varDeclaration(true);
   } else {
     statement();
   }

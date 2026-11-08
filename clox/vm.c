@@ -32,6 +32,7 @@ void initVM() {
   resetStack();
   vm.objects = NULL;
   initTable(&vm.globalNames);
+  initTable(&vm.immutableGlobals);
   initValueArray(&vm.globalValues);
   initTable(&vm.strings);
 }
@@ -42,6 +43,7 @@ void freeVM() {
   vm.stackTop = NULL;
   vm.stackCapacity = 0;
   freeTable(&vm.globalNames);
+  freeTable(&vm.immutableGlobals);
   freeValueArray(&vm.globalValues);
   freeTable(&vm.strings);
   freeObjects();

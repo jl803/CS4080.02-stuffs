@@ -12,6 +12,7 @@ typedef struct {
   Value* stackTop;
   int stackCapacity;
   Table globalNames;
+  Table immutableGlobals;
   ValueArray globalValues;
   Table strings;
   Obj* objects;
