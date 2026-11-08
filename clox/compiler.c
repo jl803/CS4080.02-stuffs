@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "compiler.h"
+#include "memory.h"
 #include "scanner.h"
 #include "table.h"
 
@@ -48,8 +49,9 @@ typedef struct {
 } Local;
 
 typedef struct {
-  Local locals[UINT8_COUNT];
+  Local* locals;
   int localCount;
+  int localCapacity;
   int scopeDepth;
 } Compiler;
 
@@ -124,7 +126,9 @@ static void emitConstant(Value value) {
   writeConstant(currentChunk(), value, parser.previous.line);
 }
 static void initCompiler(Compiler* compiler) {
+  compiler->locals = NULL;
   compiler->localCount = 0;
+  compiler->localCapacity = 0;
   compiler->scopeDepth = 0;
   current = compiler;
 }
@@ -207,9 +211,16 @@ static void setGlobalMutability(Token* name, bool isMutable) {
   }
 }
 static void addLocal(Token name, bool isMutable) {
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
+  }
+
+  if (current->localCapacity < current->localCount + 1) {
+    int oldCapacity = current->localCapacity;
+    current->localCapacity = GROW_CAPACITY(oldCapacity);
+    current->locals = GROW_ARRAY(Local, current->locals,
+        oldCapacity, current->localCapacity);
   }
 
   Local* local = &current->locals[current->localCount++];
@@ -301,18 +312,26 @@ static void string(bool canAssign) {
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
                                   parser.previous.length - 2)));
 }
+static void emitLocalInstruction(uint8_t shortOp, uint8_t longOp,
+                                 int slot) {
+  if (slot <= UINT8_MAX) {
+    emitBytes(shortOp, (uint8_t)slot);
+  } else {
+    emitByte(longOp);
+    emitByte((uint8_t)((slot >> 8) & 0xff));
+    emitByte((uint8_t)(slot & 0xff));
+  }
+}
 static void namedVariable(Token name, bool canAssign) {
-  uint8_t getOp, setOp;
+  bool isLocal;
   bool isMutable;
   int arg = resolveLocal(current, &name);
   if (arg != -1) {
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
+    isLocal = true;
     isMutable = current->locals[arg].isMutable;
   } else {
+    isLocal = false;
     arg = identifierConstant(&name);
-    getOp = OP_GET_GLOBAL;
-    setOp = OP_SET_GLOBAL;
     isMutable = isGlobalMutable(&name);
   }
 
@@ -321,9 +340,17 @@ static void namedVariable(Token name, bool canAssign) {
     if (!isMutable) {
       errorAt(&name, "Can't assign to a 'let' variable.");
     }
-    emitBytes(setOp, (uint8_t)arg);
+    if (isLocal) {
+      emitLocalInstruction(OP_SET_LOCAL, OP_SET_LOCAL_LONG, arg);
+    } else {
+      emitBytes(OP_SET_GLOBAL, (uint8_t)arg);
+    }
   } else {
-    emitBytes(getOp, (uint8_t)arg);
+    if (isLocal) {
+      emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG, arg);
+    } else {
+      emitBytes(OP_GET_GLOBAL, (uint8_t)arg);
+    }
   }
 }
 static void variable(bool canAssign) {
@@ -508,5 +535,6 @@ bool compile(const char* source, Chunk* chunk) {
   }
 
   endCompiler();
+  FREE_ARRAY(Local, compiler.locals, compiler.localCapacity);
   return !parser.hadError;
 }

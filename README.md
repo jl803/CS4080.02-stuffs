@@ -7,3 +7,11 @@
 2
 [line 1] Error at 'score': Can't assign to a 'let' variable.
 ```
+
+## Chapter 22 Question 4
+
+```text
+0
+255
+999
+```
