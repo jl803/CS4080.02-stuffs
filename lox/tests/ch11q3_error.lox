@@ -1,0 +1,5 @@
+{
+  var used = 1;
+  print used;
+  var unused = 2;
+}

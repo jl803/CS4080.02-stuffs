@@ -1,0 +1,8 @@
+{
+  var first = "outer";
+  {
+    var second = "inner";
+    print first;
+    print second;
+  }
+}
