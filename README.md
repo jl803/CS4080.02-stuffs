@@ -23,5 +23,5 @@ Invalid input:
 Output:
 
 ```text
-[line 1] Error at end: Expect ':' after then branch of conditional operator.
+[line 2] Error at end: Expect ':' after then branch of conditional operator.
 ```
