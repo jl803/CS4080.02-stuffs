@@ -439,7 +439,9 @@ ParseRule rules[] = {
   [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     and_,   PREC_AND},
+  [TOKEN_CASE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_DEFAULT]       = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
   [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
@@ -451,6 +453,7 @@ ParseRule rules[] = {
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_SWITCH]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
@@ -579,6 +582,78 @@ static void printStatement() {
   consume(TOKEN_SEMICOLON, "Expect ';' after value.");
   emitByte(OP_PRINT);
 }
+static void switchStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch value.");
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before switch cases.");
+
+  typedef enum {
+    SWITCH_BEFORE_CASE,
+    SWITCH_IN_CASE,
+    SWITCH_AFTER_DEFAULT
+  } SwitchPhase;
+
+  SwitchPhase phase = SWITCH_BEFORE_CASE;
+  int previousCaseJump = -1;
+  int* endJumps = NULL;
+  int endJumpCount = 0;
+  int endJumpCapacity = 0;
+
+  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    if (match(TOKEN_CASE) || match(TOKEN_DEFAULT)) {
+      TokenType label = parser.previous.type;
+
+      if (phase == SWITCH_AFTER_DEFAULT) {
+        error("Can't place a case after the default case.");
+      }
+
+      if (phase == SWITCH_IN_CASE) {
+        if (endJumpCapacity < endJumpCount + 1) {
+          int oldCapacity = endJumpCapacity;
+          endJumpCapacity = GROW_CAPACITY(oldCapacity);
+          endJumps = GROW_ARRAY(int, endJumps,
+              oldCapacity, endJumpCapacity);
+        }
+        endJumps[endJumpCount++] = emitJump(OP_JUMP);
+        patchJump(previousCaseJump);
+        emitByte(OP_POP);
+      }
+
+      if (label == TOKEN_CASE) {
+        phase = SWITCH_IN_CASE;
+        emitByte(OP_DUP);
+        expression();
+        consume(TOKEN_COLON, "Expect ':' after case value.");
+        emitByte(OP_EQUAL);
+        previousCaseJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+      } else {
+        phase = SWITCH_AFTER_DEFAULT;
+        consume(TOKEN_COLON, "Expect ':' after default.");
+      }
+    } else {
+      if (phase == SWITCH_BEFORE_CASE) {
+        error("Can't place statements before the first case.");
+      }
+      statement();
+    }
+  }
+
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch cases.");
+
+  if (phase == SWITCH_IN_CASE) {
+    patchJump(previousCaseJump);
+    emitByte(OP_POP);
+  }
+
+  for (int i = 0; i < endJumpCount; i++) {
+    patchJump(endJumps[i]);
+  }
+  FREE_ARRAY(int, endJumps, endJumpCapacity);
+
+  emitByte(OP_POP);
+}
 static void whileStatement() {
   int loopStart = currentChunk()->count;
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
@@ -608,6 +683,7 @@ static void synchronize() {
       case TOKEN_WHILE:
       case TOKEN_PRINT:
       case TOKEN_RETURN:
+      case TOKEN_SWITCH:
         return;
 
       default:
@@ -635,6 +711,8 @@ static void statement() {
     forStatement();
   } else if (match(TOKEN_IF)) {
     ifStatement();
+  } else if (match(TOKEN_SWITCH)) {
+    switchStatement();
   } else if (match(TOKEN_WHILE)) {
     whileStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {

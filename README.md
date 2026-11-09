@@ -15,3 +15,12 @@
 255
 999
 ```
+
+## Chapter 23 Question 1
+
+```text
+two
+after
+default
+only
+```
