@@ -1,0 +1,5 @@
+print "before";
+/* outer
+  /* nested */
+*/
+print "after";
