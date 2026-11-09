@@ -1,0 +1,4 @@
+var value = 10;
+print value;
+value = 20;
+print value;

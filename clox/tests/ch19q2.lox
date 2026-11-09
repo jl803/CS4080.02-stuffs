@@ -1,0 +1,4 @@
+print "constant string";
+var first = "combined ";
+var second = "string";
+print first + second;

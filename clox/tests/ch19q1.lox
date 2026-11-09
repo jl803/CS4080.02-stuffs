@@ -1,0 +1,3 @@
+var first = "flexible ";
+var second = "array";
+print first + second;

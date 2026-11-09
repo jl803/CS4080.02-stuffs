@@ -1,0 +1,4 @@
+var repeated = 1;
+print repeated;
+print repeated;
+print repeated;
