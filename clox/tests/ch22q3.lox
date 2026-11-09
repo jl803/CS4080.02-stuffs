@@ -1,0 +1,6 @@
+let score = 10;
+print score;
+
+var count = 1;
+count = 2;
+print count;

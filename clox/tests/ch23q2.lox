@@ -1,0 +1,14 @@
+for (var i = 0; i < 5; i = i + 1) {
+  if (i < 3) continue;
+  print i;
+}
+
+var n = 0;
+while (n < 5) {
+  n = n + 1;
+  {
+    var temporary = n;
+    if (n == 3) continue;
+    print temporary;
+  }
+}
