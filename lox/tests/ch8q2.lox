@@ -1,0 +1,5 @@
+var a;
+var b;
+a = "assigned";
+print a;
+print b;
