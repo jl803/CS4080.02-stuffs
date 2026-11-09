@@ -24,3 +24,11 @@ after
 default
 only
 ```
+
+## Chapter 23 Question 2
+
+```text
+For loop: 3 4
+While loop: 1 2 4 5
+Outside a loop: compile error
+```

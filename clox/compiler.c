@@ -55,8 +55,15 @@ typedef struct {
   int scopeDepth;
 } Compiler;
 
+typedef struct LoopContext {
+  struct LoopContext* enclosing;
+  int continueTarget;
+  int scopeDepth;
+} LoopContext;
+
 Parser parser;
 Compiler* current = NULL;
+LoopContext* currentLoop = NULL;
 Chunk* compilingChunk;
 
 static Chunk* currentChunk() {
@@ -441,6 +448,7 @@ ParseRule rules[] = {
   [TOKEN_AND]           = {NULL,     and_,   PREC_AND},
   [TOKEN_CASE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_CONTINUE]      = {NULL,     NULL,   PREC_NONE},
   [TOKEN_DEFAULT]       = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
@@ -514,6 +522,23 @@ static void expressionStatement() {
   consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
   emitByte(OP_POP);
 }
+static void continueStatement() {
+  if (currentLoop == NULL) {
+    error("Can't use 'continue' outside of a loop.");
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+    return;
+  }
+
+  consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+
+  for (int i = current->localCount - 1;
+       i >= 0 && current->locals[i].depth > currentLoop->scopeDepth;
+       i--) {
+    emitByte(OP_POP);
+  }
+
+  emitLoop(currentLoop->continueTarget);
+}
 static void forStatement() {
   beginScope();
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
@@ -527,7 +552,13 @@ static void forStatement() {
     expressionStatement();
   }
 
-  int loopStart = currentChunk()->count;
+  LoopContext loop;
+  loop.enclosing = currentLoop;
+  loop.continueTarget = currentChunk()->count;
+  loop.scopeDepth = current->scopeDepth;
+  currentLoop = &loop;
+
+  int loopStart = loop.continueTarget;
   int exitJump = -1;
   if (!match(TOKEN_SEMICOLON)) {
     expression();
@@ -547,6 +578,7 @@ static void forStatement() {
 
     emitLoop(loopStart);
     loopStart = incrementStart;
+    loop.continueTarget = incrementStart;
     patchJump(bodyJump);
   }
 
@@ -558,6 +590,7 @@ static void forStatement() {
     emitByte(OP_POP); // Condition.
   }
 
+  currentLoop = loop.enclosing;
   endScope();
 }
 static void ifStatement() {
@@ -656,6 +689,13 @@ static void switchStatement() {
 }
 static void whileStatement() {
   int loopStart = currentChunk()->count;
+
+  LoopContext loop;
+  loop.enclosing = currentLoop;
+  loop.continueTarget = loopStart;
+  loop.scopeDepth = current->scopeDepth;
+  currentLoop = &loop;
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
@@ -664,6 +704,8 @@ static void whileStatement() {
   emitByte(OP_POP);
   statement();
   emitLoop(loopStart);
+
+  currentLoop = loop.enclosing;
 
   patchJump(exitJump);
   emitByte(OP_POP);
@@ -675,6 +717,7 @@ static void synchronize() {
     if (parser.previous.type == TOKEN_SEMICOLON) return;
     switch (parser.current.type) {
       case TOKEN_CLASS:
+      case TOKEN_CONTINUE:
       case TOKEN_FUN:
       case TOKEN_LET:
       case TOKEN_VAR:
@@ -707,6 +750,8 @@ static void declaration() {
 static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_CONTINUE)) {
+    continueStatement();
   } else if (match(TOKEN_FOR)) {
     forStatement();
   } else if (match(TOKEN_IF)) {
