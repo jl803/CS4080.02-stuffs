@@ -11,8 +11,13 @@
 #include "vm.h"
 
 VM vm; // [one]
-static Value clockNative(int argCount, Value* args) {
-  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+static bool clockNative(int argCount, Value* args) {
+  args[-1] = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+  return true;
+}
+static bool failNative(int argCount, Value* args) {
+  args[-1] = OBJ_VAL(copyString("Native function failed.", 23));
+  return false;
 }
 static void resetStack() {
   vm.stackTop = vm.stack;
@@ -60,6 +65,7 @@ void initVM() {
   initTable(&vm.strings);
 
   defineNative("clock", 0, clockNative);
+  defineNative("fail", 0, failNative);
 }
 
 void freeVM() {
@@ -130,11 +136,14 @@ static bool callValue(Value callee, int argCount) {
                        native->arity, argCount);
           return false;
         }
-        Value result = native->function(
-            argCount, vm.stackTop - argCount);
-        vm.stackTop -= argCount + 1;
-        push(result);
-        return true;
+        if (native->function(argCount,
+                             vm.stackTop - argCount)) {
+          vm.stackTop -= argCount;
+          return true;
+        }
+        runtimeError("%s",
+            AS_CSTRING(vm.stackTop[-argCount - 1]));
+        return false;
       }
       default:
         break; // Non-callable object type.

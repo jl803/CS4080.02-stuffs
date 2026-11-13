@@ -13,3 +13,12 @@ Call loop: before 249.89 ms, after 259.76 ms
 Expected 0 arguments but got 1.
 [line 1] in script
 ```
+
+## Ch24Q3
+
+```text
+Native function failed.
+[line 1] in script
+
+Native call benchmark: before 94.46 ms, after 87.35 ms
+```
