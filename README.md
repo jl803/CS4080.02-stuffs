@@ -6,3 +6,10 @@
 Fibonacci: before 782.12 ms, after 747.97 ms
 Call loop: before 249.89 ms, after 259.76 ms
 ```
+
+## Ch24Q2
+
+```text
+Expected 0 arguments but got 1.
+[line 1] in script
+```
