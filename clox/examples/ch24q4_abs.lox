@@ -1,0 +1,2 @@
+print abs(-12.5);
+print abs(3);

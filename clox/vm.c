@@ -11,6 +11,16 @@
 #include "vm.h"
 
 VM vm; // [one]
+static bool absNative(int argCount, Value* args) {
+  if (!IS_NUMBER(args[0])) {
+    args[-1] = OBJ_VAL(copyString("abs() expects a number.", 23));
+    return false;
+  }
+
+  double value = AS_NUMBER(args[0]);
+  args[-1] = NUMBER_VAL(value < 0 ? -value : value);
+  return true;
+}
 static bool clockNative(int argCount, Value* args) {
   args[-1] = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
   return true;
@@ -18,6 +28,27 @@ static bool clockNative(int argCount, Value* args) {
 static bool failNative(int argCount, Value* args) {
   args[-1] = OBJ_VAL(copyString("Native function failed.", 23));
   return false;
+}
+static bool typeNative(int argCount, Value* args) {
+  const char* name;
+  if (IS_BOOL(args[0])) {
+    name = "boolean";
+  } else if (IS_NIL(args[0])) {
+    name = "nil";
+  } else if (IS_NUMBER(args[0])) {
+    name = "number";
+  } else if (IS_FUNCTION(args[0])) {
+    name = "function";
+  } else if (IS_NATIVE(args[0])) {
+    name = "native";
+  } else if (IS_STRING(args[0])) {
+    name = "string";
+  } else {
+    name = "unknown";
+  }
+
+  args[-1] = OBJ_VAL(copyString(name, (int)strlen(name)));
+  return true;
 }
 static void resetStack() {
   vm.stackTop = vm.stack;
@@ -64,8 +95,10 @@ void initVM() {
   initValueArray(&vm.globalValues);
   initTable(&vm.strings);
 
+  defineNative("abs", 1, absNative);
   defineNative("clock", 0, clockNative);
   defineNative("fail", 0, failNative);
+  defineNative("type", 1, typeNative);
 }
 
 void freeVM() {
