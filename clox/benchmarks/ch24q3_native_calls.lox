@@ -1,0 +1,7 @@
+var calls = 0;
+while (calls < 2000000) {
+  clock();
+  calls = calls + 1;
+}
+
+print calls;

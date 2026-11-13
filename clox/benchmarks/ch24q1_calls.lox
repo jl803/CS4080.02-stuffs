@@ -1,0 +1,10 @@
+fun addOne(n) {
+  return n + 1;
+}
+
+var value = 0;
+while (value < 10000000) {
+  value = addOne(value);
+}
+
+print value;
