@@ -46,7 +46,13 @@ typedef struct {
   Token name;
   int depth;
   bool isMutable;
+  bool isCaptured;
 } Local;
+typedef struct {
+  uint8_t index;
+  bool isLocal;
+  bool isMutable;
+} Upvalue;
 typedef enum {
   TYPE_FUNCTION,
   TYPE_SCRIPT
@@ -60,6 +66,7 @@ typedef struct Compiler {
   Local* locals;
   int localCount;
   int localCapacity;
+  Upvalue upvalues[UINT8_COUNT];
   int scopeDepth;
 } Compiler;
 
@@ -152,6 +159,15 @@ static void emitReturn() {
   emitByte(OP_NIL);
   emitByte(OP_RETURN);
 }
+static uint8_t makeConstant(Value value) {
+  int constant = addConstant(currentChunk(), value);
+  if (constant > UINT8_MAX) {
+    error("Too many constants in one chunk.");
+    return 0;
+  }
+
+  return (uint8_t)constant;
+}
 static void emitConstant(Value value) {
   writeConstant(currentChunk(), value, parser.previous.line);
 }
@@ -184,6 +200,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
 
   Local* local = &current->locals[current->localCount++];
   local->depth = 0;
+  local->isCaptured = false;
   local->name.start = "";
   local->name.length = 0;
 }
@@ -210,7 +227,11 @@ static void endScope() {
   while (current->localCount > 0 &&
          current->locals[current->localCount - 1].depth >
             current->scopeDepth) {
-    emitByte(OP_POP);
+    if (current->locals[current->localCount - 1].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
+    } else {
+      emitByte(OP_POP);
+    }
     current->localCount--;
   }
 }
@@ -257,6 +278,49 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 
   return -1;
 }
+static int addUpvalue(Compiler* compiler, uint8_t index,
+                      bool isLocal, bool isMutable) {
+  int upvalueCount = compiler->function->upvalueCount;
+
+  for (int i = 0; i < upvalueCount; i++) {
+    Upvalue* upvalue = &compiler->upvalues[i];
+    if (upvalue->index == index && upvalue->isLocal == isLocal) {
+      return i;
+    }
+  }
+
+  if (upvalueCount == UINT8_COUNT) {
+    error("Too many closure variables in function.");
+    return 0;
+  }
+
+  compiler->upvalues[upvalueCount].isLocal = isLocal;
+  compiler->upvalues[upvalueCount].index = index;
+  compiler->upvalues[upvalueCount].isMutable = isMutable;
+  return compiler->function->upvalueCount++;
+}
+static int resolveUpvalue(Compiler* compiler, Token* name) {
+  if (compiler->enclosing == NULL) return -1;
+
+  int local = resolveLocal(compiler->enclosing, name);
+  if (local != -1) {
+    if (local > UINT8_MAX) {
+      error("Can't capture a local variable after slot 255.");
+      return -1;
+    }
+    compiler->enclosing->locals[local].isCaptured = true;
+    return addUpvalue(compiler, (uint8_t)local, true,
+        compiler->enclosing->locals[local].isMutable);
+  }
+
+  int upvalue = resolveUpvalue(compiler->enclosing, name);
+  if (upvalue != -1) {
+    return addUpvalue(compiler, (uint8_t)upvalue, false,
+        compiler->enclosing->upvalues[upvalue].isMutable);
+  }
+
+  return -1;
+}
 static bool isGlobalMutable(Token* name) {
   ObjString* string = copyString(name->start, name->length);
   Value ignored;
@@ -288,6 +352,7 @@ static void addLocal(Token name, bool isMutable) {
   local->name = name;
   local->depth = -1;
   local->isMutable = isMutable;
+  local->isCaptured = false;
 }
 static void declareVariable(bool isMutable) {
   if (current->scopeDepth == 0) return;
@@ -421,14 +486,21 @@ static void emitLocalInstruction(uint8_t shortOp, uint8_t longOp,
   }
 }
 static void namedVariable(Token name, bool canAssign) {
-  bool isLocal;
+  uint8_t getOp;
+  uint8_t setOp;
   bool isMutable;
   int arg = resolveLocal(current, &name);
   if (arg != -1) {
-    isLocal = true;
+    getOp = OP_GET_LOCAL;
+    setOp = OP_SET_LOCAL;
     isMutable = current->locals[arg].isMutable;
+  } else if ((arg = resolveUpvalue(current, &name)) != -1) {
+    getOp = OP_GET_UPVALUE;
+    setOp = OP_SET_UPVALUE;
+    isMutable = current->upvalues[arg].isMutable;
   } else {
-    isLocal = false;
+    getOp = OP_GET_GLOBAL;
+    setOp = OP_SET_GLOBAL;
     arg = identifierConstant(&name);
     isMutable = isGlobalMutable(&name);
   }
@@ -438,16 +510,16 @@ static void namedVariable(Token name, bool canAssign) {
     if (!isMutable) {
       errorAt(&name, "Can't assign to a 'let' variable.");
     }
-    if (isLocal) {
+    if (setOp == OP_SET_LOCAL) {
       emitLocalInstruction(OP_SET_LOCAL, OP_SET_LOCAL_LONG, arg);
     } else {
-      emitBytes(OP_SET_GLOBAL, (uint8_t)arg);
+      emitBytes(setOp, (uint8_t)arg);
     }
   } else {
-    if (isLocal) {
+    if (getOp == OP_GET_LOCAL) {
       emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG, arg);
     } else {
-      emitBytes(OP_GET_GLOBAL, (uint8_t)arg);
+      emitBytes(getOp, (uint8_t)arg);
     }
   }
 }
@@ -571,7 +643,14 @@ static void function(FunctionType type) {
   block();
 
   ObjFunction* function = endCompiler();
-  emitConstant(OBJ_VAL(function));
+  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+
+  for (int i = 0; i < function->upvalueCount; i++) {
+    emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+    emitByte(compiler.upvalues[i].index);
+  }
+
+  FREE_ARRAY(Local, compiler.locals, compiler.localCapacity);
 }
 static void funDeclaration() {
   uint8_t global = parseVariable("Expect function name.", true);
@@ -610,7 +689,11 @@ static void continueStatement() {
   for (int i = current->localCount - 1;
        i >= 0 && current->locals[i].depth > currentLoop->scopeDepth;
        i--) {
-    emitByte(OP_POP);
+    if (current->locals[i].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
+    } else {
+      emitByte(OP_POP);
+    }
   }
 
   emitLoop(currentLoop->continueTarget);
