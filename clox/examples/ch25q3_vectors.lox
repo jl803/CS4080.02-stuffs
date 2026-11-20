@@ -1,0 +1,35 @@
+fun makeVector(x, y) {
+  fun getX() {
+    return x;
+  }
+
+  fun getY() {
+    return y;
+  }
+
+  fun add(other) {
+    var newX = x + other("x")();
+    var newY = y + other("y")();
+    return makeVector(newX, newY);
+  }
+
+  fun method(name) {
+    if (name == "x") return getX;
+    if (name == "y") return getY;
+    if (name == "add") return add;
+
+    print "Unknown vector method.";
+    return nil;
+  }
+
+  return method;
+}
+
+var first = makeVector(2, 3);
+var second = makeVector(4, 5);
+var sum = first("add")(second);
+
+print first("x")();
+print first("y")();
+print sum("x")();
+print sum("y")();

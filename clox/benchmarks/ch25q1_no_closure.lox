@@ -1,0 +1,13 @@
+var start = clock();
+var total = 0;
+
+for (var i = 0; i < 500000; i = i + 1) {
+  fun addOne(value) {
+    return value + 1;
+  }
+
+  total = total + addOne(i);
+}
+
+print total;
+print clock() - start;

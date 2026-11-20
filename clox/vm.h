@@ -8,7 +8,7 @@
 #define FRAMES_MAX 64
 
 typedef struct {
-  ObjFunction* function;
+  Obj* callable;
   uint8_t* ip;
   Value* slots;
 } CallFrame;
@@ -25,6 +25,7 @@ typedef struct {
   ValueArray globalValues;
   Table strings;
   Obj* objects;
+  ObjUpvalue* openUpvalues;
 } VM;
 
 typedef enum {
