@@ -643,11 +643,16 @@ static void function(FunctionType type) {
   block();
 
   ObjFunction* function = endCompiler();
-  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+  uint8_t constant = makeConstant(OBJ_VAL(function));
+  if (function->upvalueCount == 0) {
+    emitBytes(OP_CONSTANT, constant);
+  } else {
+    emitBytes(OP_CLOSURE, constant);
 
-  for (int i = 0; i < function->upvalueCount; i++) {
-    emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
-    emitByte(compiler.upvalues[i].index);
+    for (int i = 0; i < function->upvalueCount; i++) {
+      emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+      emitByte(compiler.upvalues[i].index);
+    }
   }
 
   FREE_ARRAY(Local, compiler.locals, compiler.localCapacity);
