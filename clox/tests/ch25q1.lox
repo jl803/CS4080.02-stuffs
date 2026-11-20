@@ -1,0 +1,17 @@
+fun add(a, b) {
+  return a + b;
+}
+
+fun makeCounter() {
+  var count = 0;
+  fun next() {
+    count = count + 1;
+    return count;
+  }
+  return next;
+}
+
+print add(2, 3);
+var counter = makeCounter();
+print counter();
+print counter();

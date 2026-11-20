@@ -1,0 +1,20 @@
+var first;
+var second;
+
+fun saveClosures() {
+  for (var i = 1; i <= 2; i = i + 1) {
+    fun show() {
+      print i;
+    }
+
+    if (i == 1) {
+      first = show;
+    } else {
+      second = show;
+    }
+  }
+}
+
+saveClosures();
+first();
+second();
