@@ -74,6 +74,8 @@ typedef struct LoopContext {
   struct LoopContext* enclosing;
   int continueTarget;
   int scopeDepth;
+  int loopVariable;
+  int iterationVariable;
 } LoopContext;
 
 Parser parser;
@@ -691,6 +693,14 @@ static void continueStatement() {
 
   consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
 
+  if (currentLoop->iterationVariable != -1) {
+    emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG,
+                         currentLoop->iterationVariable);
+    emitLocalInstruction(OP_SET_LOCAL, OP_SET_LOCAL_LONG,
+                         currentLoop->loopVariable);
+    emitByte(OP_POP);
+  }
+
   for (int i = current->localCount - 1;
        i >= 0 && current->locals[i].depth > currentLoop->scopeDepth;
        i--) {
@@ -705,13 +715,25 @@ static void continueStatement() {
 }
 static void forStatement() {
   beginScope();
+
+  int loopVariable = -1;
+  Token loopVariableName;
+  loopVariableName.start = NULL;
+  loopVariableName.length = 0;
+  bool loopVariableIsMutable = true;
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
   if (match(TOKEN_SEMICOLON)) {
     // No initializer.
   } else if (match(TOKEN_LET)) {
+    loopVariableName = parser.current;
+    loopVariableIsMutable = false;
     varDeclaration(false);
+    loopVariable = current->localCount - 1;
   } else if (match(TOKEN_VAR)) {
+    loopVariableName = parser.current;
     varDeclaration(true);
+    loopVariable = current->localCount - 1;
   } else {
     expressionStatement();
   }
@@ -720,6 +742,8 @@ static void forStatement() {
   loop.enclosing = currentLoop;
   loop.continueTarget = currentChunk()->count;
   loop.scopeDepth = current->scopeDepth;
+  loop.loopVariable = loopVariable;
+  loop.iterationVariable = -1;
   currentLoop = &loop;
 
   int loopStart = loop.continueTarget;
@@ -746,7 +770,28 @@ static void forStatement() {
     patchJump(bodyJump);
   }
 
+  int iterationVariable = -1;
+  if (loopVariable != -1) {
+    beginScope();
+    emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG,
+                         loopVariable);
+    addLocal(loopVariableName, loopVariableIsMutable);
+    markInitialized();
+    iterationVariable = current->localCount - 1;
+    loop.iterationVariable = iterationVariable;
+  }
+
   statement();
+
+  if (loopVariable != -1) {
+    emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG,
+                         iterationVariable);
+    emitLocalInstruction(OP_SET_LOCAL, OP_SET_LOCAL_LONG,
+                         loopVariable);
+    emitByte(OP_POP);
+    endScope();
+  }
+
   emitLoop(loopStart);
 
   if (exitJump != -1) {
@@ -871,6 +916,8 @@ static void whileStatement() {
   loop.enclosing = currentLoop;
   loop.continueTarget = loopStart;
   loop.scopeDepth = current->scopeDepth;
+  loop.loopVariable = -1;
+  loop.iterationVariable = -1;
   currentLoop = &loop;
 
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
